@@ -1,0 +1,462 @@
+<html>
+<head>
+<style type="text/css">
+.inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.left {
+  text-align: left;
+}
+.right {
+  text-align: right;
+}
+.center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+<title>Sales Data Analysis</title>
+</head>
+<body>
+
+<h2>Data Loading and Preparation</h2>
+
+<!-- Libraries Loading -->
+<div class="chunk" id="load-libraries"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(dplyr)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## 
+## Attaching package: 'dplyr'
+</pre></div>
+<div class="message"><pre class="knitr r">## The following objects are masked from 'package:stats':
+## 
+##     filter, lag
+</pre></div>
+<div class="message"><pre class="knitr r">## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(ggplot2)</span>
+<span class="hl kwd">library</span><span class="hl std">(scales)</span>
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: package 'scales' was built under R version 4.3.3
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(lubridate)</span>
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: package 'lubridate' was built under R version 4.3.3
+</pre></div>
+<div class="message"><pre class="knitr r">## 
+## Attaching package: 'lubridate'
+</pre></div>
+<div class="message"><pre class="knitr r">## The following objects are masked from 'package:base':
+## 
+##     date, intersect, setdiff, union
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(Metrics)</span>
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: package 'Metrics' was built under R version 4.3.3
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(h2o)</span>
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: package 'h2o' was built under R version 4.3.3
+</pre></div>
+<div class="message"><pre class="knitr r">## 
+## ----------------------------------------------------------------------
+## 
+## Your next step is to start H2O:
+##     &gt; h2o.init()
+## 
+## For H2O package documentation, ask for help:
+##     &gt; ??h2o
+## 
+## After starting H2O, you can use the Web UI at http://localhost:54321
+## For more information visit https://docs.h2o.ai
+## 
+## ----------------------------------------------------------------------
+</pre></div>
+<div class="message"><pre class="knitr r">## 
+## Attaching package: 'h2o'
+</pre></div>
+<div class="message"><pre class="knitr r">## The following objects are masked from 'package:lubridate':
+## 
+##     day, hour, month, week, year
+</pre></div>
+<div class="message"><pre class="knitr r">## The following objects are masked from 'package:stats':
+## 
+##     cor, sd, var
+</pre></div>
+<div class="message"><pre class="knitr r">## The following objects are masked from 'package:base':
+## 
+##     %*%, %in%, &amp;&amp;, ||, apply, as.factor, as.numeric, colnames,
+##     colnames&lt;-, ifelse, is.character, is.factor, is.numeric, log,
+##     log10, log1p, log2, round, signif, trunc
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(ranger)</span>
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: package 'ranger' was built under R version 4.3.3
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(vip)</span>
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: package 'vip' was built under R version 4.3.3
+</pre></div>
+<div class="message"><pre class="knitr r">## 
+## Attaching package: 'vip'
+</pre></div>
+<div class="message"><pre class="knitr r">## The following object is masked from 'package:utils':
+## 
+##     vi
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">h2o.no_progress</span><span class="hl std">()</span>
+<span class="hl kwd">h2o.init</span><span class="hl std">(</span><span class="hl kwc">max_mem_size</span> <span class="hl std">=</span> <span class="hl str">&quot;5g&quot;</span><span class="hl std">)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## 
+## H2O is not running yet, starting it now...
+## 
+## Note:  In case of errors look at the following log files:
+##     C:\Users\jg\AppData\Local\Temp\RtmpItTRWx\file10278171a3336/h2o_jg_started_from_r.out
+##     C:\Users\jg\AppData\Local\Temp\RtmpItTRWx\file102781c43fe6/h2o_jg_started_from_r.err
+## 
+## 
+## Starting H2O JVM and connecting:  Connection successful!
+## 
+## R is connected to the H2O cluster: 
+##     H2O cluster uptime:         2 seconds 694 milliseconds 
+##     H2O cluster timezone:       America/New_York 
+##     H2O data parsing timezone:  UTC 
+##     H2O cluster version:        3.44.0.3 
+##     H2O cluster version age:    3 months and 26 days 
+##     H2O cluster name:           H2O_started_from_R_jg_epl333 
+##     H2O cluster total nodes:    1 
+##     H2O cluster total memory:   4.98 GB 
+##     H2O cluster total cores:    12 
+##     H2O cluster allowed cores:  12 
+##     H2O cluster healthy:        TRUE 
+##     H2O Connection ip:          localhost 
+##     H2O Connection port:        54321 
+##     H2O Connection proxy:       NA 
+##     H2O Internal Security:      FALSE 
+##     R Version:                  R version 4.3.2 (2023-10-31 ucrt)
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning in h2o.clusterInfo(): 
+## Your H2O cluster version is (3 months and 26 days) old. There may be a newer version available.
+## Please download and install the latest version from: https://h2o-release.s3.amazonaws.com/h2o/latest_stable.html
+</pre></div>
+
+</div></div>
+
+<!-- Data Loading and Cleaning -->
+<div class="chunk" id="load-and-clean-data"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com"># Loading and cleaning data</span>
+
+
+<span class="hl std">df_train</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">read.csv</span><span class="hl std">(</span><span class="hl str">&quot;sales_train.csv&quot;</span><span class="hl std">)</span>
+<span class="hl std">df_items</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">read.csv</span><span class="hl std">(</span><span class="hl str">&quot;items.csv&quot;</span><span class="hl std">)</span>
+<span class="hl std">df_sales</span> <span class="hl kwb">&lt;-</span> <span class="hl std">df_train</span> <span class="hl opt">%&gt;%</span> <span class="hl kwd">left_join</span><span class="hl std">(df_items,</span> <span class="hl kwc">by</span> <span class="hl std">=</span> <span class="hl str">&quot;item_id&quot;</span><span class="hl std">)</span>
+<span class="hl std">df_sales</span><span class="hl opt">$</span><span class="hl std">item_name</span> <span class="hl kwb">&lt;-</span> <span class="hl kwa">NULL</span>
+<span class="hl std">df_sales</span><span class="hl opt">$</span><span class="hl std">date</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dmy</span><span class="hl std">(df_sales</span><span class="hl opt">$</span><span class="hl std">date)</span>
+<span class="hl std">df_sales</span><span class="hl opt">$</span><span class="hl std">year</span> <span class="hl kwb">&lt;-</span>  <span class="hl std">lubridate</span><span class="hl opt">::</span><span class="hl kwd">year</span><span class="hl std">(df_sales</span><span class="hl opt">$</span><span class="hl std">date)</span>
+<span class="hl std">df_sales</span><span class="hl opt">$</span><span class="hl std">month</span> <span class="hl kwb">&lt;-</span>  <span class="hl std">lubridate</span><span class="hl opt">::</span><span class="hl kwd">month</span><span class="hl std">(df_sales</span><span class="hl opt">$</span><span class="hl std">date)</span>
+<span class="hl std">df_sales</span><span class="hl opt">$</span><span class="hl std">day</span> <span class="hl kwb">&lt;-</span>  <span class="hl std">lubridate</span><span class="hl opt">::</span><span class="hl kwd">day</span><span class="hl std">(df_sales</span><span class="hl opt">$</span><span class="hl std">date)</span>
+<span class="hl std">df_sales</span><span class="hl opt">$</span><span class="hl std">weekday</span> <span class="hl kwb">&lt;-</span>  <span class="hl kwd">weekdays</span><span class="hl std">(df_sales</span><span class="hl opt">$</span><span class="hl std">date)</span>
+<span class="hl std">df_sales</span><span class="hl opt">$</span><span class="hl std">year</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">as.factor</span><span class="hl std">(df_sales</span><span class="hl opt">$</span><span class="hl std">year)</span>
+<span class="hl std">df_sales</span><span class="hl opt">$</span><span class="hl std">weekday</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">as.factor</span><span class="hl std">(df_sales</span><span class="hl opt">$</span><span class="hl std">weekday)</span>
+<span class="hl std">df_sales</span> <span class="hl kwb">&lt;-</span> <span class="hl std">df_sales</span> <span class="hl opt">%&gt;%</span> <span class="hl kwd">group_by</span><span class="hl std">(year, month, shop_id, item_id)</span> <span class="hl opt">%&gt;%</span> <span class="hl kwd">mutate</span><span class="hl std">(</span><span class="hl kwc">item_cnt_month</span> <span class="hl std">=</span> <span class="hl kwd">sum</span><span class="hl std">(item_cnt_day))</span>
+<span class="hl kwd">rm</span><span class="hl std">(df_train, df_items)</span>
+
+<span class="hl com"># Define primary features right after data loading and cleaning</span>
+<span class="hl std">primary_features</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl str">&quot;shop_id&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;item_id&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;item_category_id&quot;</span><span class="hl std">,</span><span class="hl str">&quot;item_price&quot;</span><span class="hl std">,</span><span class="hl str">&quot;year&quot;</span><span class="hl std">,</span><span class="hl str">&quot;day&quot;</span><span class="hl std">,</span><span class="hl str">&quot;month&quot;</span><span class="hl std">)</span>
+</pre></div>
+</div></div>
+
+<h2>Data Exploration and Preprocessing</h2>
+
+<!-- Data Exploration -->
+<div class="chunk" id="data-exploration"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">glimpse</span><span class="hl std">(df_sales)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## Rows: 2,935,849
+## Columns: 12
+## Groups: year, month, shop_id, item_id [1,609,124]
+## $ date             &lt;date&gt; 2013-01-02, 2013-01-03, 2013-01-05, 2013-01-06, 2013…
+## $ date_block_num   &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
+## $ shop_id          &lt;int&gt; 59, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 2…
+## $ item_id          &lt;int&gt; 22154, 2552, 2552, 2554, 2555, 2564, 2565, 2572, 2572…
+## $ item_price       &lt;dbl&gt; 999.00, 899.00, 899.00, 1709.05, 1099.00, 349.00, 549…
+## $ item_cnt_day     &lt;dbl&gt; 1, 1, -1, 1, 1, 1, 1, 1, 1, 3, 2, 1, 1, 2, 1, 2, 1, 1…
+## $ item_category_id &lt;int&gt; 37, 58, 58, 58, 56, 59, 56, 55, 55, 55, 55, 55, 55, 5…
+## $ year             &lt;fct&gt; 2013, 2013, 2013, 2013, 2013, 2013, 2013, 2013, 2013,…
+## $ month            &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
+## $ day              &lt;int&gt; 2, 3, 5, 6, 15, 10, 2, 4, 11, 3, 3, 5, 7, 8, 10, 11, …
+## $ weekday          &lt;fct&gt; Wednesday, Thursday, Saturday, Sunday, Tuesday, Thurs…
+## $ item_cnt_month   &lt;dbl&gt; 1, 0, 0, 1, 1, 1, 1, 2, 2, 3, 13, 13, 13, 13, 13, 13,…
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">cbind</span><span class="hl std">(</span><span class="hl kwd">colSums</span><span class="hl std">(</span><span class="hl kwd">is.na</span><span class="hl std">(df_sales)))</span>
+</pre></div>
+<div class="output"><pre class="knitr r">##                  [,1]
+## date                0
+## date_block_num      0
+## shop_id             0
+## item_id             0
+## item_price          0
+## item_cnt_day        0
+## item_category_id    0
+## year                0
+## month               0
+## day                 0
+## weekday             0
+## item_cnt_month      0
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">is.null</span><span class="hl std">(df_sales)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] FALSE
+</pre></div>
+</div></div>
+
+<!-- Data Preprocessing -->
+<div class="chunk" id="preprocessing"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">set.seed</span><span class="hl std">(</span><span class="hl num">123</span><span class="hl std">)</span>  <span class="hl com"># For reproducibility</span>
+
+<span class="hl com"># Calculate Z-scores for 'item_price' and 'item_cnt_day' if they are part of your primary features</span>
+<span class="hl com"># Calculate IQR for 'item_price'</span>
+<span class="hl std">item_price_Q1</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">quantile</span><span class="hl std">(df_sales</span><span class="hl opt">$</span><span class="hl std">item_price,</span> <span class="hl num">0.25</span><span class="hl std">,</span> <span class="hl kwc">na.rm</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+<span class="hl std">item_price_Q3</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">quantile</span><span class="hl std">(df_sales</span><span class="hl opt">$</span><span class="hl std">item_price,</span> <span class="hl num">0.75</span><span class="hl std">,</span> <span class="hl kwc">na.rm</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+<span class="hl std">item_price_IQR</span> <span class="hl kwb">&lt;-</span> <span class="hl std">item_price_Q3</span> <span class="hl opt">-</span> <span class="hl std">item_price_Q1</span>
+
+<span class="hl com"># Calculate IQR for 'item_cnt_day'</span>
+<span class="hl std">item_cnt_day_Q1</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">quantile</span><span class="hl std">(df_sales</span><span class="hl opt">$</span><span class="hl std">item_cnt_day,</span> <span class="hl num">0.25</span><span class="hl std">,</span> <span class="hl kwc">na.rm</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+<span class="hl std">item_cnt_day_Q3</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">quantile</span><span class="hl std">(df_sales</span><span class="hl opt">$</span><span class="hl std">item_cnt_day,</span> <span class="hl num">0.75</span><span class="hl std">,</span> <span class="hl kwc">na.rm</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+<span class="hl std">item_cnt_day_IQR</span> <span class="hl kwb">&lt;-</span> <span class="hl std">item_cnt_day_Q3</span> <span class="hl opt">-</span> <span class="hl std">item_cnt_day_Q1</span>
+
+<span class="hl com"># Filter out outliers</span>
+<span class="hl std">df_sales_filtered</span> <span class="hl kwb">&lt;-</span> <span class="hl std">df_sales</span> <span class="hl opt">%&gt;%</span>
+  <span class="hl kwd">filter</span><span class="hl std">(item_price</span> <span class="hl opt">&gt;=</span> <span class="hl std">(item_price_Q1</span> <span class="hl opt">-</span> <span class="hl num">1.5</span> <span class="hl opt">*</span> <span class="hl std">item_price_IQR),</span>
+         <span class="hl std">item_price</span> <span class="hl opt">&lt;=</span> <span class="hl std">(item_price_Q3</span> <span class="hl opt">+</span> <span class="hl num">1.5</span> <span class="hl opt">*</span> <span class="hl std">item_price_IQR),</span>
+         <span class="hl std">item_cnt_day</span> <span class="hl opt">&gt;=</span> <span class="hl std">(item_cnt_day_Q1</span> <span class="hl opt">-</span> <span class="hl num">1.5</span> <span class="hl opt">*</span> <span class="hl std">item_cnt_day_IQR),</span>
+         <span class="hl std">item_cnt_day</span> <span class="hl opt">&lt;=</span> <span class="hl std">(item_cnt_day_Q3</span> <span class="hl opt">+</span> <span class="hl num">1.5</span> <span class="hl opt">*</span> <span class="hl std">item_cnt_day_IQR))</span>
+
+<span class="hl com"># Glimpse the filtered dataset</span>
+<span class="hl kwd">glimpse</span><span class="hl std">(df_sales_filtered)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## Rows: 2,412,619
+## Columns: 12
+## Groups: year, month, shop_id, item_id [1,479,303]
+## $ date             &lt;date&gt; 2013-01-02, 2013-01-03, 2013-01-06, 2013-01-15, 2013…
+## $ date_block_num   &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
+## $ shop_id          &lt;int&gt; 59, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 2…
+## $ item_id          &lt;int&gt; 22154, 2552, 2554, 2555, 2564, 2565, 2572, 2572, 2574…
+## $ item_price       &lt;dbl&gt; 999.00, 899.00, 1709.05, 1099.00, 349.00, 549.00, 239…
+## $ item_cnt_day     &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
+## $ item_category_id &lt;int&gt; 37, 58, 58, 56, 59, 56, 55, 55, 55, 55, 55, 55, 55, 5…
+## $ year             &lt;fct&gt; 2013, 2013, 2013, 2013, 2013, 2013, 2013, 2013, 2013,…
+## $ month            &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
+## $ day              &lt;int&gt; 2, 3, 6, 15, 10, 2, 4, 11, 5, 7, 10, 13, 16, 26, 27, …
+## $ weekday          &lt;fct&gt; Wednesday, Thursday, Sunday, Tuesday, Thursday, Wedne…
+## $ item_cnt_month   &lt;dbl&gt; 1, 0, 1, 1, 1, 1, 2, 2, 13, 13, 13, 13, 13, 13, 13, 1…
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com"># Sample a portion of the data for training, make sure to only use primary features for modeling</span>
+<span class="hl std">subset_data</span> <span class="hl kwb">&lt;-</span> <span class="hl std">df_sales_filtered</span> <span class="hl opt">%&gt;%</span> <span class="hl kwd">slice_sample</span><span class="hl std">(</span><span class="hl kwc">prop</span> <span class="hl std">=</span> <span class="hl num">0.8</span><span class="hl std">)</span>
+<span class="hl std">train_data</span> <span class="hl kwb">&lt;-</span> <span class="hl std">subset_data</span> <span class="hl opt">%&gt;%</span> <span class="hl kwd">sample_frac</span><span class="hl std">(</span><span class="hl num">0.8</span><span class="hl std">)</span>
+<span class="hl std">test_data</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">anti_join</span><span class="hl std">(subset_data, train_data)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## Joining with `by = join_by(date, date_block_num, shop_id, item_id, item_price,
+## item_cnt_day, item_category_id, year, month, day, weekday, item_cnt_month)`
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com"># Adjusting the predictors to only include primary features</span>
+  <span class="hl std">predictors</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">setdiff</span><span class="hl std">(primary_features,</span> <span class="hl str">&quot;item_cnt_month&quot;</span><span class="hl std">)</span>  <span class="hl com"># Ensuring 'response' variable is not included</span>
+
+<span class="hl std">train_h2o</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">as.h2o</span><span class="hl std">(train_data)</span>
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning in use.package(&quot;data.table&quot;): data.table cannot be used without R
+## package bit64 version 0.9.7 or higher.  Please upgrade to take advangage of
+## data.table speedups.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com"># Setting up the response variable</span>
+<span class="hl std">response</span> <span class="hl kwb">&lt;-</span> <span class="hl str">&quot;item_cnt_month&quot;</span>
+</pre></div>
+</div></div>
+
+<h2>Random Forest Modeling</h2>
+
+<!-- Random Forest Modeling -->
+<div class="chunk" id="random-forest-modeling"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com"># Recalculating n_features to reflect primary features only</span>
+<span class="hl std">n_features</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">length</span><span class="hl std">(primary_features)</span>
+
+<span class="hl com"># Hyperparameter grid setup with adjustments for primary features</span>
+<span class="hl std">hyper_grid</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span>
+  <span class="hl kwc">mtries</span> <span class="hl std">=</span> <span class="hl kwd">pmax</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwd">floor</span><span class="hl std">(n_features</span> <span class="hl opt">*</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">.05</span><span class="hl std">,</span> <span class="hl num">.15</span><span class="hl std">,</span> <span class="hl num">.25</span><span class="hl std">,</span> <span class="hl num">.333</span><span class="hl std">,</span> <span class="hl num">.4</span><span class="hl std">))),</span>
+  <span class="hl kwc">min_rows</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">3</span><span class="hl std">,</span> <span class="hl num">5</span><span class="hl std">,</span> <span class="hl num">10</span><span class="hl std">),</span>
+  <span class="hl kwc">max_depth</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">10</span><span class="hl std">,</span> <span class="hl num">20</span><span class="hl std">,</span> <span class="hl num">30</span><span class="hl std">),</span>
+  <span class="hl kwc">sample_rate</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">.55</span><span class="hl std">,</span> <span class="hl num">.632</span><span class="hl std">,</span> <span class="hl num">.70</span><span class="hl std">,</span> <span class="hl num">.80</span><span class="hl std">)</span>
+<span class="hl std">)</span>
+
+<span class="hl com"># Random grid search strategy</span>
+<span class="hl std">search_criteria</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span>
+  <span class="hl kwc">strategy</span> <span class="hl std">=</span> <span class="hl str">&quot;RandomDiscrete&quot;</span><span class="hl std">,</span>
+  <span class="hl kwc">stopping_metric</span> <span class="hl std">=</span> <span class="hl str">&quot;mse&quot;</span><span class="hl std">,</span>
+  <span class="hl kwc">stopping_tolerance</span> <span class="hl std">=</span> <span class="hl num">0.001</span><span class="hl std">,</span>   <span class="hl com"># stop if improvement is &lt; 0.1%</span>
+  <span class="hl kwc">stopping_rounds</span> <span class="hl std">=</span> <span class="hl num">10</span><span class="hl std">,</span>         <span class="hl com"># over the last 10 models</span>
+  <span class="hl kwc">max_runtime_secs</span> <span class="hl std">=</span> <span class="hl num">60</span><span class="hl opt">*</span><span class="hl num">5</span>       <span class="hl com"># or stop search after 5 min.</span>
+<span class="hl std">)</span>
+
+<span class="hl com"># Training the model</span>
+<span class="hl std">random_grid</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">h2o.grid</span><span class="hl std">(</span>
+  <span class="hl kwc">algorithm</span> <span class="hl std">=</span> <span class="hl str">&quot;randomForest&quot;</span><span class="hl std">,</span>
+  <span class="hl kwc">grid_id</span> <span class="hl std">=</span> <span class="hl str">&quot;rf_random_grid&quot;</span><span class="hl std">,</span>
+  <span class="hl kwc">x</span> <span class="hl std">= predictors,</span>
+  <span class="hl kwc">y</span> <span class="hl std">= response,</span>
+  <span class="hl kwc">training_frame</span> <span class="hl std">= train_h2o,</span>
+  <span class="hl kwc">hyper_params</span> <span class="hl std">= hyper_grid,</span>
+  <span class="hl kwc">ntrees</span> <span class="hl std">= n_features</span> <span class="hl opt">*</span> <span class="hl num">10</span><span class="hl std">,</span>
+  <span class="hl kwc">seed</span> <span class="hl std">=</span> <span class="hl num">123</span><span class="hl std">,</span>
+  <span class="hl kwc">stopping_metric</span> <span class="hl std">=</span> <span class="hl str">&quot;RMSE&quot;</span><span class="hl std">,</span>
+  <span class="hl kwc">stopping_rounds</span> <span class="hl std">=</span> <span class="hl num">10</span><span class="hl std">,</span>           <span class="hl com"># stop if last 10 trees added </span>
+  <span class="hl kwc">stopping_tolerance</span> <span class="hl std">=</span> <span class="hl num">0.005</span><span class="hl std">,</span>     <span class="hl com"># don't improve RMSE by 0.5%</span>
+  <span class="hl kwc">search_criteria</span> <span class="hl std">= search_criteria</span>
+<span class="hl std">)</span>
+
+<span class="hl com"># Retrieving and displaying grid performance</span>
+<span class="hl std">random_grid_perf</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">h2o.getGrid</span><span class="hl std">(</span>
+  <span class="hl kwc">grid_id</span> <span class="hl std">=</span> <span class="hl str">&quot;rf_random_grid&quot;</span><span class="hl std">,</span>
+  <span class="hl kwc">sort_by</span> <span class="hl std">=</span> <span class="hl str">&quot;mse&quot;</span><span class="hl std">,</span>
+  <span class="hl kwc">decreasing</span> <span class="hl std">=</span> <span class="hl num">FALSE</span>
+<span class="hl std">)</span>
+<span class="hl kwd">print</span><span class="hl std">(random_grid_perf)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## H2O Grid Details
+## ================
+## 
+## Grid ID: rf_random_grid 
+## Used hyper parameters: 
+##   -  max_depth 
+##   -  min_rows 
+##   -  mtries 
+##   -  sample_rate 
+## Number of models: 23 
+## Number of failed models: 0 
+## 
+## Hyper-Parameter Search Summary: ordered by increasing mse
+##   max_depth min_rows  mtries sample_rate               model_ids      mse
+## 1  20.00000  1.00000 2.00000     0.63200 rf_random_grid_model_19 56.85490
+## 2  20.00000  3.00000 2.00000     0.63200  rf_random_grid_model_4 60.89509
+## 3  20.00000  5.00000 2.00000     0.70000 rf_random_grid_model_12 66.13378
+## 4  20.00000  5.00000 2.00000     0.55000 rf_random_grid_model_24 68.58494
+## 5  30.00000 10.00000 2.00000     0.70000 rf_random_grid_model_15 69.63092
+## 
+## ---
+##    max_depth min_rows  mtries sample_rate               model_ids       mse
+## 18  10.00000 10.00000 2.00000     0.80000 rf_random_grid_model_14  91.00492
+## 19  30.00000 10.00000 1.00000     0.70000 rf_random_grid_model_23  92.60878
+## 20  20.00000 10.00000 1.00000     0.80000 rf_random_grid_model_16  92.97806
+## 21  10.00000  3.00000 1.00000     0.63200 rf_random_grid_model_18 100.12760
+## 22  10.00000  5.00000 1.00000     0.80000  rf_random_grid_model_8 101.65134
+## 23  10.00000  1.00000 1.00000     0.80000  rf_random_grid_model_1 103.96820
+</pre></div>
+</div></div>
+<div class="chunk" id="random-forest-performance-measuring"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com"># Assuming 'grid' is your grid search object and 'mse' is the metric of interest</span>
+<span class="hl std">best_model_id</span> <span class="hl kwb">&lt;-</span> <span class="hl std">random_grid_perf</span><span class="hl opt">@</span><span class="hl kwc">model_ids</span><span class="hl std">[[</span><span class="hl num">1</span><span class="hl std">]]</span>
+<span class="hl std">best_model</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">h2o.getModel</span><span class="hl std">(best_model_id)</span>
+<span class="hl com"># Ensure your test data is in an H2O Frame</span>
+<span class="hl std">test_h2o</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">as.h2o</span><span class="hl std">(test_data)</span>
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning in use.package(&quot;data.table&quot;): data.table cannot be used without R
+## package bit64 version 0.9.7 or higher.  Please upgrade to take advangage of
+## data.table speedups.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com"># Generate predictions</span>
+<span class="hl std">predictions</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">h2o.predict</span><span class="hl std">(best_model, test_h2o)</span>
+<span class="hl com"># Convert predictions to a standard R dataframe</span>
+<span class="hl std">predictions_df</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">as.data.frame</span><span class="hl std">(predictions)</span>
+
+<span class="hl com"># Viewing the first few predictions</span>
+<span class="hl kwd">head</span><span class="hl std">(predictions_df)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">##     predict
+## 1 21.866275
+## 2 16.487704
+## 3  4.348292
+## 4  5.277736
+## 5  6.214244
+## 6  9.502721
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">predictions_df</span><span class="hl opt">$</span><span class="hl std">actual</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">as.vector</span><span class="hl std">(test_data</span><span class="hl opt">$</span><span class="hl std">item_cnt_month)</span>
+
+
+<span class="hl com"># Calculate MSE and RMSE</span>
+<span class="hl std">mse</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">mean</span><span class="hl std">((predictions_df</span><span class="hl opt">$</span><span class="hl std">predict</span> <span class="hl opt">-</span> <span class="hl std">predictions_df</span><span class="hl opt">$</span><span class="hl std">actual)</span><span class="hl opt">^</span><span class="hl num">2</span><span class="hl std">)</span>
+<span class="hl std">rmse</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sqrt</span><span class="hl std">(mse)</span>
+
+<span class="hl kwd">cat</span><span class="hl std">(</span><span class="hl str">&quot;MSE:&quot;</span><span class="hl std">, mse,</span> <span class="hl str">&quot;\n&quot;</span><span class="hl std">)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## MSE: 46.10612
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">cat</span><span class="hl std">(</span><span class="hl str">&quot;RMSE:&quot;</span><span class="hl std">, rmse,</span> <span class="hl str">&quot;\n&quot;</span><span class="hl std">)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## RMSE: 6.790149
+</pre></div>
+</div></div>
+
+<div class="chunk" id="unnamed-chunk-1"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com"># Scatter plot with actual values on the x-axis and predicted values on the y-axis</span>
+<span class="hl kwd">ggplot</span><span class="hl std">(predictions_df,</span> <span class="hl kwd">aes</span><span class="hl std">(</span><span class="hl kwc">x</span> <span class="hl std">= actual,</span> <span class="hl kwc">y</span> <span class="hl std">= predict))</span> <span class="hl opt">+</span>
+  <span class="hl kwd">geom_point</span><span class="hl std">(</span><span class="hl kwc">alpha</span> <span class="hl std">=</span> <span class="hl num">0.5</span><span class="hl std">)</span> <span class="hl opt">+</span>  <span class="hl com"># Add points, with some transparency to see overlap</span>
+  <span class="hl kwd">geom_abline</span><span class="hl std">(</span><span class="hl kwc">intercept</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">slope</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">color</span> <span class="hl std">=</span> <span class="hl str">&quot;red&quot;</span><span class="hl std">,</span> <span class="hl kwc">linetype</span> <span class="hl std">=</span> <span class="hl str">&quot;dashed&quot;</span><span class="hl std">)</span> <span class="hl opt">+</span>  <span class="hl com"># Perfect prediction line</span>
+  <span class="hl kwd">labs</span><span class="hl std">(</span><span class="hl kwc">x</span> <span class="hl std">=</span> <span class="hl str">&quot;Actual Values&quot;</span><span class="hl std">,</span> <span class="hl kwc">y</span> <span class="hl std">=</span> <span class="hl str">&quot;Predicted Values&quot;</span><span class="hl std">,</span> <span class="hl kwc">title</span> <span class="hl std">=</span> <span class="hl str">&quot;Actual vs. Predicted Values&quot;</span><span class="hl std">)</span> <span class="hl opt">+</span>
+  <span class="hl kwd">theme_minimal</span><span class="hl std">()</span>
+</pre></div>
+</div><div class="rimage default"><img src="figure/unnamed-chunk-1-1.png" alt="plot of chunk unnamed-chunk-1" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl com"># Calculate residuals</span>
+<span class="hl std">predictions_df</span><span class="hl opt">$</span><span class="hl std">residuals</span> <span class="hl kwb">&lt;-</span> <span class="hl std">predictions_df</span><span class="hl opt">$</span><span class="hl std">predict</span> <span class="hl opt">-</span> <span class="hl std">predictions_df</span><span class="hl opt">$</span><span class="hl std">actual</span>
+
+<span class="hl com"># Plot histogram of residuals</span>
+<span class="hl kwd">ggplot</span><span class="hl std">(predictions_df,</span> <span class="hl kwd">aes</span><span class="hl std">(</span><span class="hl kwc">x</span> <span class="hl std">= residuals))</span> <span class="hl opt">+</span>
+  <span class="hl kwd">geom_histogram</span><span class="hl std">(</span><span class="hl kwc">binwidth</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">fill</span> <span class="hl std">=</span> <span class="hl str">&quot;blue&quot;</span><span class="hl std">,</span> <span class="hl kwc">color</span> <span class="hl std">=</span> <span class="hl str">&quot;black&quot;</span><span class="hl std">,</span> <span class="hl kwc">alpha</span> <span class="hl std">=</span> <span class="hl num">0.7</span><span class="hl std">)</span> <span class="hl opt">+</span>  <span class="hl com"># Adjust 'binwidth' as needed</span>
+  <span class="hl kwd">labs</span><span class="hl std">(</span><span class="hl kwc">x</span> <span class="hl std">=</span> <span class="hl str">&quot;Residuals (Predicted - Actual)&quot;</span><span class="hl std">,</span> <span class="hl kwc">y</span> <span class="hl std">=</span> <span class="hl str">&quot;Frequency&quot;</span><span class="hl std">,</span> <span class="hl kwc">title</span> <span class="hl std">=</span> <span class="hl str">&quot;Histogram of Residuals&quot;</span><span class="hl std">)</span> <span class="hl opt">+</span>
+  <span class="hl kwd">theme_minimal</span><span class="hl std">()</span>
+</pre></div>
+</div><div class="rimage default"><img src="figure/unnamed-chunk-1-2.png" alt="plot of chunk unnamed-chunk-1" class="plot" /></div></div>
+
+
+</body>
+</html>

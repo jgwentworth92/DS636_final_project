@@ -1,0 +1,191 @@
+<html>
+<head>
+<title>Sales Data Analysis</title>
+</head>
+<body>
+
+<h2>Data Loading and Preparation</h2>
+
+<!-- Libraries Loading -->
+<!--begin.rcode load-libraries
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(lubridate)
+library(Metrics)
+library(h2o)
+library(ranger)
+library(vip)
+h2o.no_progress()
+h2o.init(max_mem_size = "5g")
+end.rcode-->
+
+<!-- Data Loading and Cleaning -->
+<!--begin.rcode load-and-clean-data
+# Loading and cleaning data
+
+
+df_train <- read.csv("sales_train.csv")
+df_items <- read.csv("items.csv")
+df_sales <- df_train %>% left_join(df_items, by = "item_id")
+df_sales$item_name <- NULL
+df_sales$date <- dmy(df_sales$date)
+df_sales$year <-  lubridate::year(df_sales$date)
+df_sales$month <-  lubridate::month(df_sales$date)
+df_sales$day <-  lubridate::day(df_sales$date)
+df_sales$weekday <-  weekdays(df_sales$date)
+df_sales$year <- as.factor(df_sales$year)
+df_sales$weekday <- as.factor(df_sales$weekday)
+df_sales <- df_sales %>% group_by(year, month, shop_id, item_id) %>% mutate(item_cnt_month = sum(item_cnt_day))
+rm(df_train, df_items)
+
+# Define primary features right after data loading and cleaning
+primary_features <- c("shop_id", "item_id", "item_category_id","item_price","year","day","month")
+end.rcode-->
+
+<h2>Data Exploration and Preprocessing</h2>
+
+<!-- Data Exploration -->
+<!--begin.rcode data-exploration
+glimpse(df_sales)
+cbind(colSums(is.na(df_sales)))
+is.null(df_sales)
+end.rcode-->
+
+<!-- Data Preprocessing -->
+<!--begin.rcode preprocessing
+set.seed(123)  # For reproducibility
+
+# Calculate Z-scores for 'item_price' and 'item_cnt_day' if they are part of your primary features
+# Calculate IQR for 'item_price'
+item_price_Q1 <- quantile(df_sales$item_price, 0.25, na.rm = TRUE)
+item_price_Q3 <- quantile(df_sales$item_price, 0.75, na.rm = TRUE)
+item_price_IQR <- item_price_Q3 - item_price_Q1
+
+# Calculate IQR for 'item_cnt_day'
+item_cnt_day_Q1 <- quantile(df_sales$item_cnt_day, 0.25, na.rm = TRUE)
+item_cnt_day_Q3 <- quantile(df_sales$item_cnt_day, 0.75, na.rm = TRUE)
+item_cnt_day_IQR <- item_cnt_day_Q3 - item_cnt_day_Q1
+
+# Filter out outliers
+df_sales_filtered <- df_sales %>%
+  filter(item_price >= (item_price_Q1 - 1.5 * item_price_IQR),
+         item_price <= (item_price_Q3 + 1.5 * item_price_IQR),
+         item_cnt_day >= (item_cnt_day_Q1 - 1.5 * item_cnt_day_IQR),
+         item_cnt_day <= (item_cnt_day_Q3 + 1.5 * item_cnt_day_IQR))
+
+# Glimpse the filtered dataset
+glimpse(df_sales_filtered)
+# Sample a portion of the data for training, make sure to only use primary features for modeling
+subset_data <- df_sales_filtered %>% slice_sample(prop = 0.8)
+train_data <- subset_data %>% sample_frac(0.8)
+test_data <- anti_join(subset_data, train_data)
+
+# Adjusting the predictors to only include primary features
+  predictors <- setdiff(primary_features, "item_cnt_month")  # Ensuring 'response' variable is not included
+
+train_h2o <- as.h2o(train_data)
+
+# Setting up the response variable
+response <- "item_cnt_month"
+end.rcode-->
+
+<h2>Random Forest Modeling</h2>
+
+<!-- Random Forest Modeling -->
+<!--begin.rcode random-forest-modeling
+# Recalculating n_features to reflect primary features only
+n_features <- length(primary_features)
+
+# Hyperparameter grid setup with adjustments for primary features
+hyper_grid <- list(
+  mtries = pmax(1, floor(n_features * c(.05, .15, .25, .333, .4))),
+  min_rows = c(1, 3, 5, 10),
+  max_depth = c(10, 20, 30),
+  sample_rate = c(.55, .632, .70, .80)
+)
+
+# Random grid search strategy
+search_criteria <- list(
+  strategy = "RandomDiscrete",
+  stopping_metric = "mse",
+  stopping_tolerance = 0.001,   # stop if improvement is < 0.1%
+  stopping_rounds = 10,         # over the last 10 models
+  max_runtime_secs = 60*5       # or stop search after 5 min.
+)
+
+# Training the model
+random_grid <- h2o.grid(
+  algorithm = "randomForest",
+  grid_id = "rf_random_grid",
+  x = predictors,
+  y = response,
+  training_frame = train_h2o,
+  hyper_params = hyper_grid,
+  ntrees = n_features * 10,
+  seed = 123,
+  stopping_metric = "RMSE",   
+  stopping_rounds = 10,           # stop if last 10 trees added 
+  stopping_tolerance = 0.005,     # don't improve RMSE by 0.5%
+  search_criteria = search_criteria
+)
+
+# Retrieving and displaying grid performance
+random_grid_perf <- h2o.getGrid(
+  grid_id = "rf_random_grid", 
+  sort_by = "mse", 
+  decreasing = FALSE
+)
+print(random_grid_perf)
+end.rcode-->
+<!--begin.rcode random-forest-performance-measuring
+# Assuming 'grid' is your grid search object and 'mse' is the metric of interest
+best_model_id <- random_grid_perf@model_ids[[1]]
+best_model <- h2o.getModel(best_model_id)
+# Ensure your test data is in an H2O Frame
+test_h2o <- as.h2o(test_data)
+
+# Generate predictions
+predictions <- h2o.predict(best_model, test_h2o)
+# Convert predictions to a standard R dataframe
+predictions_df <- as.data.frame(predictions)
+
+# Viewing the first few predictions
+head(predictions_df)
+
+predictions_df$actual <- as.vector(test_data$item_cnt_month)
+
+
+# Calculate MSE and RMSE
+mse <- mean((predictions_df$predict - predictions_df$actual)^2)
+rmse <- sqrt(mse)
+
+cat("MSE:", mse, "\n")
+cat("RMSE:", rmse, "\n")
+
+end.rcode-->
+
+<!--begin.rcode 
+
+
+# Scatter plot with actual values on the x-axis and predicted values on the y-axis
+ggplot(predictions_df, aes(x = actual, y = predict)) +
+  geom_point(alpha = 0.5) +  # Add points, with some transparency to see overlap
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +  # Perfect prediction line
+  labs(x = "Actual Values", y = "Predicted Values", title = "Actual vs. Predicted Values") +
+  theme_minimal()
+
+# Calculate residuals
+predictions_df$residuals <- predictions_df$predict - predictions_df$actual
+
+# Plot histogram of residuals
+ggplot(predictions_df, aes(x = residuals)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "black", alpha = 0.7) +  # Adjust 'binwidth' as needed
+  labs(x = "Residuals (Predicted - Actual)", y = "Frequency", title = "Histogram of Residuals") +
+  theme_minimal()
+
+end.rcode-->
+
+
+</body>
+</html>
